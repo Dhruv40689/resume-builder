@@ -211,23 +211,7 @@ Custom-built scoring system that evaluates:
 
 ---
 
-## 🌐 Deployment
 
-### Deploy on Render
-1. Push code to GitHub
-2. Create new Web Service on [render.com](https://render.com)
-3. Set build command: `pip install -r requirements.txt`
-4. Set start command: `streamlit run app.py --server.port $PORT --server.address 0.0.0.0`
-5. Add environment variable `OPENAI_API_KEY` (optional)
-
-### Deploy on Streamlit Cloud
-1. Push code to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect GitHub repo
-4. Set main file: `app.py`
-5. Add secrets for API keys
-
----
 
 ## 📈 Scoring Breakdown
 
@@ -265,22 +249,3 @@ Custom-built scoring system that evaluates:
 
 ---
 
-## 👤 Author
-
-**AI Resume Builder & ATS Optimization Agent**  
-Assignment Submission | February 2026
-
----
-
-## 📞 Submission Notes
-
-- ✅ Fully functional AI agent
-- ✅ Manual entry + file upload support  
-- ✅ ATS scoring with detailed breakdown
-- ✅ AI-based content enhancement (OpenAI GPT)
-- ✅ 3 professional LaTeX-inspired templates
-- ✅ DOCX + PDF download
-- ✅ Before/After comparison mode
-- ✅ Score improvement tracker
-- ✅ Clean, professional UI
-- ✅ Ready for Vercel/Render deployment
