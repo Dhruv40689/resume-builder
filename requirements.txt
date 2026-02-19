@@ -1,0 +1,8 @@
+streamlit>=1.28.0
+openai>=1.0.0
+python-docx>=0.8.11
+pdfplumber>=0.9.0
+PyPDF2>=3.0.0
+reportlab>=4.0.0
+requests>=2.31.0
+magicalapi>=0.1.0
