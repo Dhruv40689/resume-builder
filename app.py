@@ -3,28 +3,28 @@ AI-Powered Resume Builder & ATS Optimization Agent
 Main Streamlit Application - v4
 """
 
-# ── Suppress ALL noisy library warnings before any imports ───────────────────
+
 import warnings
 import logging
 import os
 import sys
 
-# Kill pdfminer FontBBox / font warnings (they use logging.warning internally)
+
+
 for noisy in ("pdfminer", "pdfminer.pdffont", "pdfminer.pdfpage",
                "pdfminer.converter", "pdfminer.layout", "pdfminer.high_level"):
     logging.getLogger(noisy).setLevel(logging.ERROR)
 
-# Kill pdfplumber wrapper warnings
+
 logging.getLogger("pdfplumber").setLevel(logging.ERROR)
 
-# Kill Python warnings for common noisy patterns
-warnings.filterwarnings("ignore")          # suppress everything at startup
-os.environ["PYTHONWARNINGS"] = "ignore"    # also for subprocesses
 
+warnings.filterwarnings("ignore")         
+os.environ["PYTHONWARNINGS"] = "ignore"   
 import streamlit as st
 import io
 
-# Page configuration
+
 st.set_page_config(
     page_title="AI Resume Builder & ATS Optimizer",
     page_icon="📄",
@@ -32,7 +32,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ─── Custom CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #black; }
@@ -95,13 +94,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Module imports ───────────────────────────────────────────────────────────
+
 from resume_parser import ResumeParser
 from ats_scorer import ATSScorer
 from ai_enhancer import AIEnhancer
 from resume_generator import ResumeGenerator
 
-# ─── Session state init ───────────────────────────────────────────────────────
+
 defaults = {
     'resume_data': {}, 'original_text': '',
     'original_summary_snapshot': '',   # stores summary at save-time for comparison
@@ -113,18 +112,18 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ─── Header ──────────────────────────────────────────────────────────────────
+
 st.markdown("""
 <div class="main-header">
     <h1>🤖 AI Resume Builder & ATS Optimizer</h1>
     <p style="font-size:1.1rem;margin:0;">Create ATS-optimized, professionally formatted resumes with AI</p>
 </div>""", unsafe_allow_html=True)
 
-# ─── Sidebar ─────────────────────────────────────────────────────────────────
+
 with st.sidebar:
     st.markdown("## ⚙️ Configuration")
 
-    # OpenAI key
+    
     api_key = st.text_input("🤖 OpenAI API Key", type="password",
                             value=st.session_state.api_key, placeholder="sk-...")
     if api_key:
@@ -153,14 +152,11 @@ with st.sidebar:
             del st.session_state[key]
         st.rerun()
 
-# ═════════════════════════════════════════════════════════════════════════════
-# STEP 1 – INPUT
-# ═════════════════════════════════════════════════════════════════════════════
+
 st.markdown('<div class="section-header"><h2>Step 1 — Input Your Resume</h2></div>', unsafe_allow_html=True)
 
 input_method = st.radio("Choose Input Method:", ["📤 Upload Existing Resume", "✏️ Enter Details Manually"], horizontal=True)
 
-# ── Upload branch ─────────────────────────────────────────────────────────────
 if input_method == "📤 Upload Existing Resume":
     uploaded_file = st.file_uploader("Upload your resume (PDF or DOCX)", type=["pdf", "docx"])
 
@@ -215,7 +211,7 @@ if input_method == "📤 Upload Existing Resume":
                     "education_text": education, "experience_text": experience, "projects_text": projects,
                 }
                 st.session_state.original_text = raw_text
-                # ← snapshot so comparison works even after enhancement
+             
                 st.session_state.original_summary_snapshot = (
                     summary.strip() if summary.strip()
                     else "(No summary found in uploaded resume — add one above for better ATS score)"
@@ -223,7 +219,7 @@ if input_method == "📤 Upload Existing Resume":
                 st.session_state.step = max(st.session_state.step, 2)
                 st.success("✅ Data saved! Scroll down to calculate your ATS score.")
 
-# ── Manual entry branch ───────────────────────────────────────────────────────
+
 else:
     st.markdown("### 👤 Personal Information")
     c1, c2, c3 = st.columns(3)
@@ -356,9 +352,7 @@ else:
 
 st.markdown("---")
 
-# ═════════════════════════════════════════════════════════════════════════════
-# STEP 2 – ATS SCORING
-# ═════════════════════════════════════════════════════════════════════════════
+
 st.markdown('<div class="section-header"><h2>Step 2 — ATS Score Analysis</h2></div>', unsafe_allow_html=True)
 
 st.session_state.job_description = st.text_area(
@@ -420,9 +414,7 @@ if st.session_state.original_score:
 
 st.markdown("---")
 
-# ═════════════════════════════════════════════════════════════════════════════
-# STEP 3 – AI ENHANCEMENT
-# ═════════════════════════════════════════════════════════════════════════════
+
 st.markdown('<div class="section-header"><h2>Step 3 — AI-Powered Enhancement</h2></div>', unsafe_allow_html=True)
 
 col_a, col_b = st.columns(2)
@@ -454,14 +446,14 @@ if st.button("🚀 Enhance Resume", disabled=not bool(st.session_state.resume_da
         )
         bar.progress(70)
 
-        # ── FIX: merge ALL original fields so enhanced data is always complete ──
+       
         for k, v in st.session_state.resume_data.items():
             if k not in enhanced or not enhanced[k]:
                 enhanced[k] = v
 
         st.session_state.enhanced_data = enhanced
 
-        # ── FIX: score with original + enhanced combined text to avoid regression ──
+        
         scorer = ATSScorer(magical_api_key=st.session_state.magical_api_key)
         combined_text = st.session_state.original_text + " " + enhanced.get('full_text', '')
         enhanced_score = scorer.calculate_score(
@@ -474,7 +466,6 @@ if st.button("🚀 Enhance Resume", disabled=not bool(st.session_state.resume_da
         st.session_state.step = max(st.session_state.step, 4)
     st.success("✅ Resume enhanced successfully!")
 
-# ── Score tracker + Before/After ─────────────────────────────────────────────
 if st.session_state.enhanced_data:
     if st.session_state.original_score and st.session_state.enhanced_score:
         orig_s = st.session_state.original_score['overall_score']
@@ -491,7 +482,7 @@ if st.session_state.enhanced_data:
 
     st.markdown("### 🔍 Before vs After Comparison")
 
-    # ── FIX: always use snapshot for original, never live resume_data ──
+    
     orig_sum = (st.session_state.original_summary_snapshot or
                 st.session_state.resume_data.get("summary", "") or
                 "(No summary in original resume — add one for a better ATS score)")
@@ -518,9 +509,7 @@ if st.session_state.enhanced_data:
 
 st.markdown("---")
 
-# ═════════════════════════════════════════════════════════════════════════════
-# STEP 4 – TEMPLATE SELECTION
-# ═════════════════════════════════════════════════════════════════════════════
+
 st.markdown('<div class="section-header"><h2>Step 4 — Choose Template</h2></div>', unsafe_allow_html=True)
 
 t1, t2, t3 = st.columns(3)
@@ -552,9 +541,7 @@ selected_template = st.selectbox(
 
 st.markdown("---")
 
-# ═════════════════════════════════════════════════════════════════════════════
-# STEP 5 – GENERATE & DOWNLOAD
-# ═════════════════════════════════════════════════════════════════════════════
+
 st.markdown('<div class="section-header"><h2>Step 5 — Generate & Download</h2></div>', unsafe_allow_html=True)
 
 if st.button("⚡ Generate Resume Now", type="primary"):
@@ -599,7 +586,7 @@ if st.session_state.generated and st.session_state.docx_bytes:
         except Exception as e:
             st.warning(f"PDF note: {e}")
 
-    # Final ATS score banner
+
     score_obj   = st.session_state.enhanced_score or st.session_state.original_score
     if score_obj:
         fs  = score_obj['overall_score']
@@ -614,7 +601,7 @@ if st.session_state.generated and st.session_state.docx_bytes:
             <div style="font-size:1.1rem;color:#495057;margin-top:4px;">Final Optimized ATS Score</div>
         </div>""", unsafe_allow_html=True)
 
-# ─── Footer ───────────────────────────────────────────────────────────────────
+
 st.markdown("---")
 st.markdown("""
 <div style="text-align:center;color:#6c757d;padding:1rem;">

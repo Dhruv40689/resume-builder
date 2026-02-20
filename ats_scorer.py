@@ -1,4 +1,3 @@
-
 import re
 import io
 import json
@@ -8,18 +7,7 @@ import os
 from typing import Dict, List, Tuple, Optional
 
 
-
 class MagicalAPIClient:
-    """
-    Thin synchronous wrapper around MagicalAPI REST endpoints.
-
-    Free tier → sign up at https://magicalapi.com  (no credit card needed)
-    API key format: mag_xxxxxxxxxxxxxxxx
-
-    Endpoints used:
-      POST https://api.magicalapi.com/resume/en/v1/review
-      POST https://api.magicalapi.com/resume/en/v1/score   (needs job description)
-    """
 
     BASE = "https://api.magicalapi.com"
 
@@ -27,13 +15,8 @@ class MagicalAPIClient:
         self.api_key = api_key
         self.headers = {"Authorization": f"Bearer {api_key}"}
 
-    # ── resume_review ─────────────────────────────────────────────────────────
     def review_resume(self, resume_bytes: bytes, filename: str = "resume.pdf") -> dict:
-        """
-        Send resume file to MagicalAPI /review endpoint.
-        Returns parsed JSON response or empty dict on error.
-        """
-        url   = f"{self.BASE}/resume/en/v1/review"
+        url = f"{self.BASE}/resume/en/v1/review"
         files = {"resume": (filename, resume_bytes, self._mime(filename))}
         try:
             resp = requests.post(url, headers=self.headers, files=files, timeout=60)
@@ -43,16 +26,11 @@ class MagicalAPIClient:
             print(f"[MagicalAPI review error] {e}")
             return {}
 
-    
     def score_resume(self, resume_bytes: bytes, job_description: str,
                      filename: str = "resume.pdf") -> dict:
-        """
-        Send resume + job description to MagicalAPI /score endpoint.
-        Returns parsed JSON response or empty dict on error.
-        """
-        url   = f"{self.BASE}/resume/en/v1/score"
+        url = f"{self.BASE}/resume/en/v1/score"
         files = {"resume": (filename, resume_bytes, self._mime(filename))}
-        data  = {"job_description": job_description}
+        data = {"job_description": job_description}
         try:
             resp = requests.post(url, headers=self.headers, files=files,
                                  data=data, timeout=60)
@@ -69,56 +47,35 @@ class MagicalAPIClient:
 
 
 def _parse_magical_review(resp: dict) -> Optional[dict]:
-    """
-    Convert MagicalAPI review response into our internal score dict.
-    MagicalAPI response shape (typical):
-    {
-      "data": {
-        "score": 72,
-        "sections": {
-          "contact":    {"score": 90, "pros": [...], "cons": [...]},
-          "summary":    {"score": 60, "pros": [...], "cons": [...]},
-          "experience": {"score": 75, "pros": [...], "cons": [...]},
-          "education":  {"score": 80, "pros": [...], "cons": [...]},
-          "skills":     {"score": 65, "pros": [...], "cons": [...]},
-        },
-        "suggestions": [...],
-        "missing_keywords": [...]
-      }
-    }
-    Returns None if response is malformed.
-    """
     try:
-        data = resp.get("data") or resp  # some versions have top-level data
+        data = resp.get("data") or resp
         overall = int(data.get("score", 0))
         if overall == 0:
             return None
 
-        sections   = data.get("sections", {})
-        suggestions= data.get("suggestions", [])
+        sections = data.get("sections", {})
+        suggestions = data.get("suggestions", [])
         missing_kw = data.get("missing_keywords", [])
 
-        # Collect cons from each section as additional suggestions
         for sec_name, sec_data in sections.items():
             if isinstance(sec_data, dict):
                 for con in sec_data.get("cons", []):
                     if con and con not in suggestions:
                         suggestions.append(con)
 
-        # Extract per-section scores
         def sec(key, default=0):
             s = sections.get(key, {})
             return int(s.get("score", default)) if isinstance(s, dict) else default
 
         return {
-            "overall_score":  overall,
-            "keyword_score":  sec("skills", overall),
-            "format_score":   sec("contact", overall),
-            "content_score":  sec("experience", overall),
-            "section_score":  sec("summary", overall),
-            "suggestions":    [str(s) for s in suggestions if s][:8],
+            "overall_score": overall,
+            "keyword_score": sec("skills", overall),
+            "format_score": sec("contact", overall),
+            "content_score": sec("experience", overall),
+            "section_score": sec("summary", overall),
+            "suggestions": [str(s) for s in suggestions if s][:8],
             "missing_keywords": [str(k) for k in missing_kw][:15],
-            "power_verb_count":        0,
+            "power_verb_count": 0,
             "quantified_achievements": 0,
             "source": "MagicalAPI",
         }
@@ -128,13 +85,11 @@ def _parse_magical_review(resp: dict) -> Optional[dict]:
 
 
 def _parse_magical_score(resp: dict) -> Optional[int]:
-    """Extract job-match score from MagicalAPI /score response."""
     try:
         data = resp.get("data") or resp
         return int(data.get("score", 0)) or None
     except Exception:
         return None
-
 
 
 class _BuiltinScorer:
@@ -149,12 +104,14 @@ class _BuiltinScorer:
         'flutter', 'android', 'reinforcement learning', 'transformers', 'bert',
         'fine-tuning', 'rag', 'crewai', 'mlflow', 'oracle',
     ]
+
     SOFT_SKILLS = [
         'leadership', 'communication', 'teamwork', 'problem solving', 'analytical',
         'project management', 'critical thinking', 'collaboration', 'adaptable',
         'organized', 'detail-oriented', 'self-motivated', 'innovative', 'strategic',
         'mentoring', 'coaching',
     ]
+
     POWER_VERBS = [
         'achieved', 'improved', 'reduced', 'increased', 'developed', 'launched',
         'managed', 'led', 'created', 'built', 'designed', 'implemented', 'delivered',
@@ -162,6 +119,7 @@ class _BuiltinScorer:
         'analyzed', 'evaluated', 'generated', 'enhanced', 'accelerated', 'drove',
         'established', 'spearheaded', 'orchestrated', 'transformed', 'scaled',
     ]
+
     QUANTIFIERS = [
         r'\d+%', r'\$\d+', r'\d+x', r'\d+\+',
         r'\d+ (percent|million|billion|thousand)',
@@ -169,13 +127,13 @@ class _BuiltinScorer:
     ]
 
     def calculate(self, data: dict, raw_text: str, job_description: str = "") -> dict:
-        full       = self._full_text(data, raw_text)
+        full = self._full_text(data, raw_text)
         full_lower = full.lower()
 
-        sec_s, sec_sg           = self._sections(data)
-        kw_s,  kw_sg,  missing  = self._keywords(full_lower, job_description)
-        con_s, con_sg           = self._content(full_lower, data)
-        fmt_s, fmt_sg           = self._format(data, full)
+        sec_s, sec_sg = self._sections(data)
+        kw_s, kw_sg, missing = self._keywords(full_lower, job_description)
+        con_s, con_sg = self._content(full_lower, data)
+        fmt_s, fmt_sg = self._format(data, full)
 
         overall = sec_s*0.25 + kw_s*0.30 + con_s*0.25 + fmt_s*0.20
         if job_description:
@@ -183,14 +141,14 @@ class _BuiltinScorer:
 
         suggestions = (sec_sg + kw_sg + con_sg + fmt_sg)[:8]
         return {
-            "overall_score":           round(overall),
-            "keyword_score":           round(kw_s),
-            "format_score":            round(fmt_s),
-            "content_score":           round(con_s),
-            "section_score":           round(sec_s),
-            "suggestions":             suggestions,
-            "missing_keywords":        missing[:15],
-            "power_verb_count":        sum(1 for v in self.POWER_VERBS if v in full_lower),
+            "overall_score": round(overall),
+            "keyword_score": round(kw_s),
+            "format_score": round(fmt_s),
+            "content_score": round(con_s),
+            "section_score": round(sec_s),
+            "suggestions": suggestions,
+            "missing_keywords": missing[:15],
+            "power_verb_count": sum(1 for v in self.POWER_VERBS if v in full_lower),
             "quantified_achievements": sum(len(re.findall(p, full, re.I)) for p in self.QUANTIFIERS),
             "source": "Built-in",
         }
@@ -199,7 +157,7 @@ class _BuiltinScorer:
         parts = [raw or ""]
         for k in ['summary','experience_text','education_text','projects_text']:
             if data.get(k): parts.append(str(data[k]))
-        if data.get('skills'):       parts.append(' '.join(data['skills']))
+        if data.get('skills'): parts.append(' '.join(data['skills']))
         if data.get('certifications'): parts.append(' '.join(data['certifications']))
         for e in data.get('experience_entries', []):
             for f in ['title','company','responsibilities']:
@@ -221,13 +179,13 @@ class _BuiltinScorer:
     def _sections(self, data):
         score, sg = 0, []
         for keys, pts, msg in [
-            (['name'],                                          10, "Add your full name"),
-            (['email'],                                         10, "Add a professional email"),
-            (['phone'],                                          8, "Add your phone number"),
-            (['summary'],                                       15, "Add a professional summary"),
-            (['skills'],                                        20, "Add a dedicated skills section"),
-            (['experience_text','experience_entries'],          20, "Add work experience"),
-            (['education_text', 'education_entries'],           17, "Add your education"),
+            (['name'], 10, "Add your full name"),
+            (['email'], 10, "Add a professional email"),
+            (['phone'], 8, "Add your phone number"),
+            (['summary'], 15, "Add a professional summary"),
+            (['skills'], 20, "Add a dedicated skills section"),
+            (['experience_text','experience_entries'], 20, "Add work experience"),
+            (['education_text', 'education_entries'], 17, "Add your education"),
         ]:
             if self._has(data, *keys): score += pts
             else: sg.append(msg)
@@ -251,7 +209,7 @@ class _BuiltinScorer:
 
         if jd:
             jd_kws = self._jd_kws(jd)
-            miss   = [k for k in jd_kws if k.lower() not in text]
+            miss = [k for k in jd_kws if k.lower() not in text]
             missing += miss[:10]
             if len(miss)/max(len(jd_kws),1) > 0.5:
                 sg.append(f"Add job-description keywords: {', '.join(miss[:5])}")
@@ -261,26 +219,26 @@ class _BuiltinScorer:
     def _content(self, text, data):
         score, sg = 0, []
         qc = sum(len(re.findall(p, text, re.I)) for p in self.QUANTIFIERS)
-        if   qc >= 5: score += 30
+        if qc >= 5: score += 30
         elif qc >= 3: score += 20; sg.append("Add more quantified achievements (%, $, numbers)")
         elif qc >= 1: score += 10; sg.append("Quantify achievements with metrics")
-        else:         sg.append("Add specific numbers to your achievements")
+        else: sg.append("Add specific numbers to your achievements")
 
         s = data.get('summary','')
-        if   len(s)>100: score += 20
-        elif len(s)> 50: score += 10; sg.append("Expand your summary to 3-4 sentences")
-        else:            sg.append("Write a compelling 3-4 sentence professional summary")
+        if len(s)>100: score += 20
+        elif len(s)>50: score += 10; sg.append("Expand your summary to 3-4 sentences")
+        else: sg.append("Write a compelling 3-4 sentence professional summary")
 
         skills = data.get('skills',[])
-        if   len(skills)>=10: score += 25
-        elif len(skills)>= 5: score += 15; sg.append("Add more skills to strengthen your profile")
-        else:                 score +=  5; sg.append("List at least 10 relevant skills")
+        if len(skills)>=10: score += 25
+        elif len(skills)>=5: score += 15; sg.append("Add more skills to strengthen your profile")
+        else: score += 5; sg.append("List at least 10 relevant skills")
 
         vc = sum(1 for v in self.POWER_VERBS if v in text)
-        if   vc>=8: score += 25
+        if vc>=8: score += 25
         elif vc>=5: score += 15
-        elif vc>=2: score +=  8
-        else:       sg.append("Start bullet points with strong action verbs")
+        elif vc>=2: score += 8
+        else: sg.append("Start bullet points with strong action verbs")
 
         return min(100, score), sg
 
@@ -288,17 +246,17 @@ class _BuiltinScorer:
         score, sg = 60, []
         mc = [f for f in ['name','email','phone'] if not data.get(f)]
         if mc: score -= 10*len(mc); sg.append(f"Missing contact info: {', '.join(mc)}")
-        else:  score += 15
+        else: score += 15
         if data.get('linkedin'): score += 10
         else: sg.append("Add your LinkedIn profile URL")
         wc = len(full.split())
-        if   300<=wc<=900: score += 15
-        elif wc < 300:     score -= 10; sg.append("Resume too short — add more detail")
+        if 300<=wc<=900: score += 15
+        elif wc < 300: score -= 10; sg.append("Resume too short — add more detail")
         return min(100, max(0,score)), sg
 
     def _jd_kws(self, jd):
         jd_l = jd.lower()
-        kws  = [k for k in self.TECHNICAL_KEYWORDS if k in jd_l]
+        kws = [k for k in self.TECHNICAL_KEYWORDS if k in jd_l]
         skip = {'The','This','That','With','Will','Must','Have','Your','Our','We',
                 'You','Are','For','And','Not','Any','All','Can','Would','Should',
                 'Could','Team','Work','Help','Role','Job','Years','Strong','Good'}
@@ -312,55 +270,38 @@ class _BuiltinScorer:
         return sum(1 for k in kws if k.lower() in text)/len(kws)
 
 
-
 class ATSScorer:
-    """
-    Unified ATS scorer.
-    If magical_api_key is provided → uses MagicalAPI (free tier) for primary score.
-    Always runs built-in scorer as secondary / fallback.
-    """
 
     def __init__(self, magical_api_key: str = ""):
-        self.magical_key    = magical_api_key.strip()
-        self._builtin       = _BuiltinScorer()
+        self.magical_key = magical_api_key.strip()
+        self._builtin = _BuiltinScorer()
 
     def calculate_score(
         self,
-        resume_data:    dict,
-        raw_text:       str,
+        resume_data: dict,
+        raw_text: str,
         job_description: str = "",
-        resume_bytes:   bytes = b"",      # raw bytes of uploaded file (optional)
-        resume_filename: str  = "resume.pdf",
+        resume_bytes: bytes = b"",
+        resume_filename: str = "resume.pdf",
     ) -> dict:
-        """
-        Returns unified score dict.
-        Keys: overall_score, keyword_score, format_score, content_score,
-              section_score, suggestions, missing_keywords,
-              power_verb_count, quantified_achievements,
-              source, magical_score (if available), job_match_score (if JD provided)
-        """
-       
+
         builtin_result = self._builtin.calculate(resume_data, raw_text, job_description)
 
         if not self.magical_key:
-            return builtin_result          # no MagicalAPI key → return built-in only
+            return builtin_result
 
-       
-        client         = MagicalAPIClient(self.magical_key)
+        client = MagicalAPIClient(self.magical_key)
         magical_result = None
-        job_match_score= None
+        job_match_score = None
 
         if resume_bytes:
-            
             review_resp = client.review_resume(resume_bytes, resume_filename)
             magical_result = _parse_magical_review(review_resp)
 
-           
             if job_description:
-                score_resp     = client.score_resume(resume_bytes, job_description, resume_filename)
-                job_match_score= _parse_magical_score(score_resp)
+                score_resp = client.score_resume(resume_bytes, job_description, resume_filename)
+                job_match_score = _parse_magical_score(score_resp)
         else:
-          
             try:
                 text_bytes = self._resume_to_text_bytes(resume_data, raw_text)
                 review_resp = client.review_resume(text_bytes, "resume.txt")
@@ -372,26 +313,26 @@ class ATSScorer:
                 print(f"[MagicalAPI fallback text error] {e}")
 
         if magical_result:
-           
             merged = dict(magical_result)
-           
+
             for k in ('keyword_score','format_score','content_score','section_score'):
                 if not merged.get(k):
                     merged[k] = builtin_result.get(k, 0)
-            merged['builtin_score']  = builtin_result['overall_score']
-            merged['magical_score']  = magical_result['overall_score']
+
+            merged['builtin_score'] = builtin_result['overall_score']
+            merged['magical_score'] = magical_result['overall_score']
+
             if job_match_score:
                 merged['job_match_score'] = job_match_score
+
             return merged
         else:
-          
             result = dict(builtin_result)
             result['source'] = 'Built-in (MagicalAPI unavailable)'
             return result
 
     @staticmethod
     def _resume_to_text_bytes(resume_data: dict, raw_text: str) -> bytes:
-        """Serialize resume data to plain text for API submission."""
         parts = []
         for k in ['name','email','phone','linkedin','location','summary']:
             if resume_data.get(k): parts.append(str(resume_data[k]))

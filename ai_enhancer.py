@@ -188,12 +188,12 @@ Return ONLY a comma-separated list, max 25 skills total, no explanations."""
                 return True
         return False
 
-    # ── Rule-based fallback (ALWAYS rewrites) ─────────────────────────────────
+ 
 
     def _rule_enhance(self, data: Dict, target_role: str = "", jd: str = "") -> Dict:
         enhanced = dict(data)
 
-        # ── Summary ──────────────────────────────────────────────────────────
+        
         enhanced['summary'] = self._rewrite_summary(
             data.get('summary', ''),
             data.get('skills', []),
@@ -201,11 +201,11 @@ Return ONLY a comma-separated list, max 25 skills total, no explanations."""
             target_role,
         )
 
-        # ── Experience text ───────────────────────────────────────────────────
+       
         if data.get('experience_text'):
             enhanced['experience_text'] = self._rewrite_bullets(data['experience_text'])
 
-        # ── Structured experience entries ─────────────────────────────────────
+       
         if data.get('experience_entries'):
             new_entries = []
             for exp in data['experience_entries']:
@@ -216,7 +216,7 @@ Return ONLY a comma-separated list, max 25 skills total, no explanations."""
                     e['responsibilities'] = rewritten.split('\n')
                 new_entries.append(e)
             enhanced['experience_entries'] = new_entries
-            # Also rebuild experience_text from entries
+           
             parts = []
             for exp in new_entries:
                 header = f"{exp.get('title','')} | {exp.get('company','')} ({exp.get('duration','')})"
@@ -229,11 +229,11 @@ Return ONLY a comma-separated list, max 25 skills total, no explanations."""
             if parts:
                 enhanced['experience_text'] = '\n\n'.join(parts)
 
-        # ── Projects ─────────────────────────────────────────────────────────
+        
         if data.get('projects_text'):
             enhanced['projects_text'] = self._rewrite_bullets(data['projects_text'])
 
-        # ── Skills ───────────────────────────────────────────────────────────
+       
         enhanced['skills'] = self._expand_skills(data.get('skills', []), target_role, jd)
 
         enhanced['full_text'] = self._build_full_text(enhanced)
