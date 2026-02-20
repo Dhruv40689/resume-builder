@@ -1,9 +1,4 @@
-"""
-AI Enhancement Module - v4
-- Fail-fast on GPT 429 (quota exceeded): logs once, immediately falls back
-- Never retries quota errors
-- Rule-based path ALWAYS rewrites content (not just when empty)
-"""
+
 
 import re
 from typing import Dict, List
@@ -15,7 +10,7 @@ class AIEnhancer:
         self.api_key   = (api_key or "").strip()
         self.available = False
         self.client    = None
-        self._quota_exceeded = False  # set True on first 429 → no more calls
+        self._quota_exceeded = False  
 
         if self.api_key.startswith('sk-'):
             try:
@@ -25,7 +20,6 @@ class AIEnhancer:
             except ImportError:
                 pass
 
-    # ── Public ────────────────────────────────────────────────────────────────
 
     def enhance_resume(
         self,
@@ -50,7 +44,7 @@ class AIEnhancer:
 
         return self._rule_enhance(resume_data, target_role, job_description)
 
-    # ── GPT path ──────────────────────────────────────────────────────────────
+   
 
     def _gpt_enhance(self, data, jd, role, level, options):
         enhanced = dict(data)
@@ -176,7 +170,7 @@ Return ONLY a comma-separated list, max 25 skills total, no explanations."""
             if '429' in err or 'quota' in err.lower() or 'insufficient_quota' in err:
                 self._quota_exceeded = True
                 print("[AIEnhancer] OpenAI quota exceeded — switching to rule-based enhancement.")
-                raise   # bubble up so _gpt_enhance stops immediately
+                raise   
             print(f"[AIEnhancer] GPT call error: {err}")
             return ""
 
